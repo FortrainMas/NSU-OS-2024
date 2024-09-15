@@ -1,11 +1,10 @@
-#include <unistd.h>
-#include <stdio.h>
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <wait.h>
 
 int main(void)
 {
@@ -14,14 +13,21 @@ int main(void)
     pid = fork();
     switch (pid) {
     case -1:
-        perror("fork");
+        perror("Failed to fork");
         exit(EXIT_FAILURE);
     case 0:
-        puts("Child exiting.");
+	if(execl("/bin/cat", "cat", "large_file.txt", NULL) == -1){
+            perror("Failed to execute cat");
+	    exit(EXIT_FAILURE);		
+	}
+	puts("Child exiting.");
         exit(EXIT_SUCCESS);
     default:
-        printf("Child is PID %jd\n", (intmax_t) pid);
-        puts("Parent exiting.");
+	if (wait(NULL) == -1){
+	    perror("Child process hasn't finished successfuly");
+	    exit(EXIT_FAILURE);
+	}
+        puts("Cat has executed successfuly");
         exit(EXIT_SUCCESS);
     }
 }

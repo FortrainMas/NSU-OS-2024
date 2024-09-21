@@ -18,7 +18,7 @@ Table * createTable() {
     return table;
 }
 
-void addOffset(Table* table, off_t offset) {
+void add_offset(Table* table, off_t offset) {
     table->array[table->size] = offset;
     table->size += 1;
     if (table->size == table->capacity) {
@@ -37,7 +37,7 @@ void free_table(Table * table) {
 int main(int argc, char *argv[]){
     if (argc != 2) {
         fprintf(stderr, "Filename is not provided");
-	return 1;
+        return 1;
     }
 
     int fd = open(argv[1], O_RDONLY);
@@ -50,58 +50,61 @@ int main(int argc, char *argv[]){
     off_t file_size = lseek(fd, 0, SEEK_END);
     if(file_size == -1) {
     	fprintf(stderr, "Failed lseek");
-	return 1;
+	    close(fd);
+        return 1;
     }
     if(lseek(fd, 0, SEEK_SET) == -1) {
     	fprintf(stderr, "Failed lseek");
-	return 1;
+        close(fd);
+	    return 1;
     }
 
 
-    Table * ot = createTable();
-    addOffset(ot, 0);
+    Table * offsetTable = createTable();
+    add_offset(offsetTable, 0);
 
     int BUFFER_SIZE = 4028;
     char buffer[BUFFER_SIZE];
     int buffers_read = 0;
     
-
-    printf("WITH GODS HELP\n");
     int bytes_read = 0;
     do {
         bytes_read = read(fd, buffer, BUFFER_SIZE);
-	for(int i = 0; i < bytes_read; i++){
-	    if(buffer[i] == '\n'){
-	    	addOffset(ot, (off_t)(i + buffers_read * BUFFER_SIZE));
+        if (bytes_read == -1) {
+            fprintf(stderr, "Error reading");
+            free_table(offsetTable);
+            close(fd);
+            return 1;
+        }
+	    for(int i = 0; i < bytes_read; i++){
+	        if(buffer[i] == '\n'){
+	        	add_offset(offsetTable, (off_t)(i + buffers_read * BUFFER_SIZE));
+	        }
 	    }
-	}
-	buffers_read += 1;
+	    buffers_read += 1;
     }while (bytes_read > 0);
-    addOffset(ot, file_size);
-
-
-    for(int i = 0; i < ot->size; i++){
-        printf("%d\n", ot->array[i]);
-    }   
+    add_offset(offsetTable, file_size);
 
     while(1) {
-	int line_number = 0;
+	    int line_number = 0;
     	scanf("%d", &line_number);
-
-	if(line_number == 0) {
-	    free_table(ot);
-	    close(fd);
-	    return 0;
-	} else if (line_number > 0 && line_number < ot->size){
-		char * line_buffer = (char *)malloc(sizeof(char) * (ot->array[line_number] - ot->array[line_number - 1]));
-                lseek(fd, ot->array[line_number - 1], SEEK_SET);
-		read(fd, line_buffer, ot->array[line_number] - ot->array[line_number-1]);
+	    if(line_number == 0) {
+	        free_table(offsetTable);
+	        close(fd);
+	        return 0;
+	    } else if (line_number > 0 && line_number < offsetTable->size){
+	    	char * line_buffer = (char *)malloc(sizeof(char) * (offsetTable->array[line_number] - offsetTable->array[line_number - 1]+1));
+            lseek(fd, offsetTable->array[line_number - 1], SEEK_SET);
+	    	read(fd, line_buffer, offsetTable->array[line_number] - offsetTable->array[line_number-1]);
+            line_buffer[offsetTable->array[line_number] - offsetTable->array[line_number - 1]] = '\0';
 	        printf("%s\n", line_buffer); 
-	    
-	} else {
-	    fprintf(stderr, "Invalid line number");
-	    return 1;
-	}
+            free(line_buffer);
+	    } else {
+	        fprintf(stderr, "Invalid line number");
+            free_table(offsetTable);
+            close(fd);
+	        return 1;
+	    }
 
     }
 }
